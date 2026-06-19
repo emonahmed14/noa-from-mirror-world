@@ -306,6 +306,7 @@ html,body{
       <div id="contact-sub">HALVERN · MIRROR WORLD · ~4.2 LY</div>
     </div>
     <button id="info-btn" onclick="openInfo()">[ INFO ]</button>
+    <button id="key-btn" onclick="openKeyEntry()" style="background:none;border:1px solid var(--border);color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;padding:6px 8px;cursor:pointer;flex-shrink:0;border-radius:2px;margin-left:4px">[ KEY ]</button>
   </div>
 
   <!-- MESSAGES -->
@@ -391,16 +392,25 @@ document.getElementById('api-btn').addEventListener('click', () => {
   const val = document.getElementById('api-input').value.trim();
   if (!val.startsWith('sk-ant-') && !val.startsWith('sk-')) {
     document.getElementById('setup-err').style.display = 'block';
+    document.getElementById('setup-err').textContent = 'Invalid key format. Should start with sk-ant-';
     return;
   }
   document.getElementById('setup-err').style.display = 'none';
   apiKey = val;
   localStorage.setItem('alien_signal_apikey', apiKey);
   hideSetup();
-  init();
+  if (state.messages.length === 0) {
+    init();
+  }
 });
 
 // ── INFO OVERLAY ──
+function openKeyEntry() {
+  document.getElementById('setup-err').style.display = 'none';
+  document.getElementById('api-input').value = apiKey || '';
+  showSetup();
+}
+
 function openInfo() { document.getElementById('info-overlay').classList.add('open'); }
 function closeInfo() { document.getElementById('info-overlay').classList.remove('open'); }
 
