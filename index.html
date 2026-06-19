@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Signal">
+<meta name="description" content="Exchange slow messages with someone on another world">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Alien Signal Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a0d0a;
+  --panel:#0d120d;
+  --border:#1a2e1a;
+  --green:#3ddc84;
+  --green-dim:#1e6b40;
+  --green-faint:#0f1f12;
+  --text:#c8e6c8;
+  --text-dim:#5a7a5a;
+  --text-faint:#2d4a2d;
+  --amber:#d4aa70;
+  --amber-dim:#7a5a20;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+html,body{
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Share Tech Mono',monospace;
+  overflow:hidden;
+  position:fixed;
+  width:100%;
+}
+#app{
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  height:100dvh;
+  position:relative;
+  overflow:hidden;
+}
+#scanlines{
+  position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(61,220,132,0.015) 3px,rgba(61,220,132,0.015) 4px);
+  pointer-events:none;z-index:200;
+}
+
+/* HEADER */
+#header{
+  padding:calc(var(--safe-top) + 10px) 16px 10px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+  flex-shrink:0;background:var(--bg);
+  position:relative;z-index:10;
+}
+.sig-ring{
+  width:32px;height:32px;border-radius:50%;
+  border:1px solid var(--green-dim);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;position:relative;
+}
+.sig-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--green);
+  animation:pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.3;transform:scale(0.7)}}
+#contact-info{flex:1;min-width:0}
+#contact-name{font-size:13px;color:var(--green);letter-spacing:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#contact-sub{font-size:9px;color:var(--text-dim);letter-spacing:0.8px;margin-top:2px}
+#info-btn{
+  background:none;border:1px solid var(--border);
+  color:var(--text-dim);font-family:'Share Tech Mono',monospace;
+  font-size:9px;letter-spacing:1px;padding:6px 8px;
+  cursor:pointer;flex-shrink:0;border-radius:2px;
+}
+
+/* MESSAGES */
+#messages{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:14px 14px 8px;
+  display:flex;flex-direction:column;gap:14px;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  min-height:0;
+}
+#messages::-webkit-scrollbar{display:none}
+.system-msg{
+  text-align:center;font-size:9px;
+  color:var(--text-faint);letter-spacing:1.5px;
+  padding:4px 0;
+}
+.msg-block{max-width:82%;animation:fadein 0.5s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg-block.mine{align-self:flex-end}
+.msg-block.hers{align-self:flex-start}
+.msg-meta{
+  font-size:9px;color:var(--text-dim);
+  letter-spacing:0.8px;margin-bottom:3px;
+}
+.msg-block.mine .msg-meta{text-align:right}
+.msg-bubble{
+  padding:9px 12px;border:1px solid;
+  font-size:13px;line-height:1.65;
+  letter-spacing:0.2px;
+}
+.msg-block.mine .msg-bubble{
+  border-color:var(--green-dim);
+  background:var(--green-faint);color:var(--text);
+  border-radius:2px 2px 0 2px;
+}
+.msg-block.hers .msg-bubble{
+  border-color:var(--border);background:var(--panel);
+  color:var(--text);border-radius:2px 2px 2px 0;
+  animation:resolve 1s ease;
+}
+@keyframes resolve{from{opacity:0;filter:blur(3px)}to{opacity:1;filter:none}}
+.msg-status{
+  font-size:9px;letter-spacing:1.2px;
+  margin-top:3px;text-align:right;
+}
+.status-sending{color:var(--text-faint)}
+.status-sent{color:var(--green-dim)}
+.arrival-tag{
+  font-size:9px;color:var(--amber-dim);
+  letter-spacing:0.8px;margin-top:3px;
+}
+
+/* PENDING BANNER */
+#pending-banner{
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  padding:8px 14px;
+  display:none;flex-direction:column;gap:5px;
+  flex-shrink:0;
+}
+#pending-banner.visible{display:flex}
+#pending-text{font-size:9px;color:var(--text-dim);letter-spacing:1px}
+#wave-wrap{height:16px;position:relative}
+#wave-canvas{width:100%;height:100%;display:block}
+
+/* COMPOSE */
+#compose{
+  padding:10px 14px;
+  padding-bottom:calc(var(--safe-bottom) + 10px);
+  border-top:1px solid var(--border);
+  display:flex;gap:10px;align-items:flex-end;
+  flex-shrink:0;background:var(--bg);
+}
+#input-wrap{
+  flex:1;border:1px solid var(--green-dim);
+  background:var(--panel);
+  padding:9px 12px;border-radius:2px;
+}
+#msg-input{
+  width:100%;background:none;border:none;outline:none;
+  color:var(--text);font-family:'Share Tech Mono',monospace;
+  font-size:14px;resize:none;line-height:1.5;
+  max-height:90px;min-height:22px;
+  -webkit-appearance:none;
+}
+#msg-input::placeholder{color:var(--text-faint)}
+#send-btn{
+  background:none;border:1px solid var(--green-dim);
+  color:var(--green);font-family:'Share Tech Mono',monospace;
+  font-size:10px;letter-spacing:1.5px;
+  padding:10px 12px;cursor:pointer;
+  flex-shrink:0;border-radius:2px;
+  transition:background 0.15s;
+  -webkit-appearance:none;
+  line-height:1.4;
+}
+#send-btn:active:not(:disabled){background:var(--green-faint)}
+#send-btn:disabled{color:var(--text-faint);border-color:var(--text-faint)}
+
+/* INFO OVERLAY */
+#info-overlay{
+  position:fixed;inset:0;
+  background:rgba(10,13,10,0.97);
+  z-index:300;
+  display:none;flex-direction:column;
+  padding:calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 20px);
+  overflow-y:auto;
+}
+#info-overlay.open{display:flex}
+#info-card{
+  border:1px solid var(--border);
+  background:var(--panel);
+  padding:24px 20px;
+  flex:1;
+}
+#info-card h2{
+  color:var(--green);font-size:13px;
+  letter-spacing:2.5px;margin-bottom:18px;
+  padding-bottom:12px;border-bottom:1px solid var(--border);
+}
+#info-card p{
+  font-size:12px;color:var(--text-dim);
+  line-height:1.9;letter-spacing:0.3px;
+  margin-bottom:14px;
+}
+#info-card p:last-of-type{margin-bottom:0}
+.status-failed{color:#6b2020}
+#clear-btn{background:none;border:none;color:var(--text-faint);font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;cursor:pointer;padding:0;text-decoration:underline}
+  margin-top:20px;background:none;
+  border:1px solid var(--green-dim);color:var(--green-dim);
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;letter-spacing:2px;
+  padding:12px;width:100%;cursor:pointer;
+  border-radius:2px;flex-shrink:0;
+}
+
+/* SETUP OVERLAY */
+#setup-overlay{
+  position:fixed;inset:0;
+  background:var(--bg);
+  z-index:400;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:30px 24px;
+  gap:20px;
+}
+#setup-overlay.hidden{display:none}
+#setup-title{
+  color:var(--green);font-size:14px;
+  letter-spacing:3px;text-align:center;
+}
+#setup-sub{
+  font-size:10px;color:var(--text-dim);
+  letter-spacing:1px;text-align:center;
+  line-height:1.8;
+}
+#api-input{
+  width:100%;background:var(--panel);
+  border:1px solid var(--green-dim);
+  color:var(--text);font-family:'Share Tech Mono',monospace;
+  font-size:12px;padding:12px 14px;
+  border-radius:2px;outline:none;
+  -webkit-appearance:none;
+  letter-spacing:0.5px;
+}
+#api-input::placeholder{color:var(--text-faint)}
+#api-btn{
+  width:100%;background:none;
+  border:1px solid var(--green);
+  color:var(--green);font-family:'Share Tech Mono',monospace;
+  font-size:11px;letter-spacing:2px;
+  padding:14px;cursor:pointer;border-radius:2px;
+}
+#api-hint{
+  font-size:9px;color:var(--text-faint);
+  letter-spacing:0.8px;text-align:center;
+  line-height:1.7;
+}
+#api-hint a{color:var(--green-dim)}
+#setup-err{font-size:10px;color:#d4544a;letter-spacing:1px;text-align:center;display:none}
+
+/* INSTALL BANNER */
+#install-banner{
+  background:var(--green-faint);
+  border-bottom:1px solid var(--green-dim);
+  padding:8px 14px;
+  display:none;
+  align-items:center;gap:10px;
+  flex-shrink:0;
+}
+#install-banner.visible{display:flex}
+#install-text{font-size:9px;color:var(--text-dim);letter-spacing:0.8px;flex:1;line-height:1.5}
+#install-btn{
+  background:none;border:1px solid var(--green-dim);
+  color:var(--green);font-family:'Share Tech Mono',monospace;
+  font-size:9px;letter-spacing:1px;padding:5px 8px;
+  cursor:pointer;white-space:nowrap;border-radius:2px;
+}
+#dismiss-install{
+  background:none;border:none;color:var(--text-faint);
+  font-family:'Share Tech Mono',monospace;font-size:12px;
+  cursor:pointer;padding:2px 4px;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="scanlines"></div>
+
+  <!-- INSTALL BANNER -->
+  <div id="install-banner">
+    <div id="install-text">Add to home screen for app experience</div>
+    <button id="install-btn">INSTALL</button>
+    <button id="dismiss-install" aria-label="dismiss">×</button>
+  </div>
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="sig-ring"><div class="sig-dot"></div></div>
+    <div id="contact-info">
+      <div id="contact-name">NOA LIAN</div>
+      <div id="contact-sub">HALVERN · MIRROR WORLD · ~4.2 LY</div>
+    </div>
+    <button id="info-btn" onclick="openInfo()">[ INFO ]</button>
+  </div>
+
+  <!-- MESSAGES -->
+  <div id="messages">
+    <div class="system-msg">— SESSION OPENED · SIGNAL STABLE —</div>
+  </div>
+
+  <!-- PENDING BANNER -->
+  <div id="pending-banner">
+    <div id="pending-text">REPLY IN TRANSIT</div>
+    <div id="wave-wrap"><canvas id="wave-canvas"></canvas></div>
+  </div>
+
+  <!-- COMPOSE -->
+  <div id="compose">
+    <div id="input-wrap">
+      <textarea id="msg-input" rows="1" placeholder="type your message..."></textarea>
+    </div>
+    <button id="send-btn">SEND</button>
+  </div>
+</div>
+
+<!-- INFO OVERLAY -->
+<div id="info-overlay">
+  <div id="info-card">
+    <h2>NOA LIAN // CONTACT FILE</h2>
+    <p>Noa is 28. She lives in a city called Halvern, on a world much like yours but subtly different — their oceans are slightly warmer, their winters a little longer. She works as an archivist at a regional library.</p>
+    <p>She found this channel by accident, using equipment her grandfather left behind. She doesn't fully understand the physics of how it works. Neither do you.</p>
+    <p>She's not a scientist. She reads a lot, walks in the evenings, sometimes cooks badly. She's curious about your world in small, specific ways.</p>
+    <p>She does not know how long her messages take to arrive. She writes as if you might read it today, or in a year.</p>
+    <p style="color:var(--text-faint);font-size:10px;margin-top:20px;padding-top:12px;border-top:1px solid var(--border)">MESSAGE DELAYS: 20% chance minutes · 30% hours · 30% many hours · 20% days. The uncertainty is the point.</p>
+    <p style="margin-top:16px"><button id="clear-btn" onclick="clearHistory()">[ clear all messages & start over ]</button></p>
+  </div>
+  <button id="close-info" onclick="closeInfo()">CLOSE</button>
+</div>
+
+<!-- API SETUP OVERLAY -->
+<div id="setup-overlay">
+  <div id="setup-title">SIGNAL TERMINAL</div>
+  <div id="setup-sub">This app connects to Anthropic's API<br>to generate Noa's responses.<br>You need a free API key to begin.</div>
+  <input id="api-input" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+  <div id="setup-err">Invalid key format. Should start with sk-ant-</div>
+  <button id="api-btn">ESTABLISH LINK</button>
+  <div id="api-hint">
+    Get a free key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br>
+    Your key is stored only on this device.<br>
+    Never shared or uploaded anywhere.
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const STORAGE_KEY = 'alien_signal_v4';
+const API_URL = 'https://api.anthropic.com/v1/messages';
+
+let apiKey = localStorage.getItem('alien_signal_apikey') || '';
+let state = { messages: [], pendingReply: null };
+let waveFrame = null;
+let deferredInstall = null;
+let checkTimer = null;
+
+// ── PERSISTENCE ──
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+}
+function loadState() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) state = JSON.parse(s);
+  } catch(e){}
+}
+
+// ── SETUP OVERLAY ──
+function showSetup() {
+  document.getElementById('setup-overlay').classList.remove('hidden');
+}
+function hideSetup() {
+  document.getElementById('setup-overlay').classList.add('hidden');
+}
+
+document.getElementById('api-btn').addEventListener('click', () => {
+  const val = document.getElementById('api-input').value.trim();
+  if (!val.startsWith('sk-ant-') && !val.startsWith('sk-')) {
+    document.getElementById('setup-err').style.display = 'block';
+    return;
+  }
+  document.getElementById('setup-err').style.display = 'none';
+  apiKey = val;
+  localStorage.setItem('alien_signal_apikey', apiKey);
+  hideSetup();
+  init();
+});
+
+// ── INFO OVERLAY ──
+function openInfo() { document.getElementById('info-overlay').classList.add('open'); }
+function closeInfo() { document.getElementById('info-overlay').classList.remove('open'); }
+
+// ── CLOCK ──
+function updateClock() {
+  // subtle pulse on signal dot based on seconds
+  const s = new Date().getSeconds();
+  const dot = document.querySelector('.sig-dot');
+  if (dot) dot.style.opacity = 0.5 + 0.5 * Math.sin(s * 0.3);
+}
+setInterval(updateClock, 1000);
+
+// ── RENDER ──
+function renderMessages() {
+  const container = document.getElementById('messages');
+  container.innerHTML = '<div class="system-msg">— SESSION OPENED · SIGNAL STABLE —</div>';
+
+  for (const msg of state.messages) {
+    if (msg.role === 'system') {
+      const d = document.createElement('div');
+      d.className = 'system-msg';
+      d.textContent = msg.content;
+      container.appendChild(d);
+      continue;
+    }
+
+    const isMe = msg.role === 'user';
+    const block = document.createElement('div');
+    block.className = `msg-block ${isMe ? 'mine' : 'hers'}`;
+
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    if (msg.ts) {
+      const d = new Date(msg.ts);
+      const dateStr = d.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+      const timeStr = d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+      meta.textContent = (isMe ? 'YOU' : 'NOA') + '  ·  ' + dateStr + ' ' + timeStr;
+    } else {
+      meta.textContent = isMe ? 'YOU' : 'NOA';
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.textContent = msg.content;
+
+    block.appendChild(meta);
+    block.appendChild(bubble);
+
+    if (isMe) {
+      const status = document.createElement('div');
+      const st = msg.status;
+      status.className = `msg-status ${st === 'sent' ? 'status-sent' : st === 'failed' ? 'status-failed' : 'status-sending'}`;
+      status.textContent = st === 'sent' ? '✓ TRANSMITTED' : st === 'failed' ? '✗ FAILED — tap INFO to reset' : '⟳ SENDING...';
+      block.appendChild(status);
+    }
+
+    if (!isMe && msg.arrivalNote) {
+      const note = document.createElement('div');
+      note.className = 'arrival-tag';
+      note.textContent = '↳ ' + msg.arrivalNote;
+      block.appendChild(note);
+    }
+
+    container.appendChild(block);
+  }
+
+  setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+}
+
+// ── WAVE ANIMATION ──
+function startWave() {
+  const canvas = document.getElementById('wave-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let t = 0;
+
+  function draw() {
+    const w = canvas.offsetWidth || 300;
+    const h = canvas.offsetHeight || 16;
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.strokeStyle = '#1e6b40';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x < w; x++) {
+      const y = h/2 + 4 * Math.sin(x * 0.04 - t * 0.6);
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = '#3ddc84';
+    ctx.lineWidth = 0.5;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    for (let x = 0; x < w; x++) {
+      const y = h/2 + 3 * Math.sin(x * 0.06 - t * 0.9 + 2);
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    t += 0.05;
+    waveFrame = requestAnimationFrame(draw);
+  }
+
+  cancelAnimationFrame(waveFrame);
+  draw();
+}
+
+function stopWave() {
+  cancelAnimationFrame(waveFrame);
+  waveFrame = null;
+}
+
+// ── PENDING BANNER ──
+function updatePendingBanner() {
+  const banner = document.getElementById('pending-banner');
+  const text = document.getElementById('pending-text');
+
+  if (!state.pendingReply) {
+    banner.classList.remove('visible');
+    stopWave();
+    return;
+  }
+
+  banner.classList.add('visible');
+  startWave();
+
+  const remaining = state.pendingReply.arriveAt - Date.now();
+  if (remaining <= 0) {
+    text.textContent = 'REPLY ARRIVING...';
+  } else {
+    const h = Math.floor(remaining / 3600000);
+    const m = Math.floor((remaining % 3600000) / 60000);
+    if (h > 24) {
+      const days = Math.floor(h / 24);
+      text.textContent = `REPLY IN TRANSIT · ~${days}D ${h % 24}H REMAINING`;
+    } else if (h > 0) {
+      text.textContent = `REPLY IN TRANSIT · ~${h}H ${m}M REMAINING`;
+    } else if (m > 0) {
+      text.textContent = `REPLY IN TRANSIT · ~${m}M REMAINING`;
+    } else {
+      text.textContent = 'REPLY IN TRANSIT · ARRIVING SOON';
+    }
+  }
+}
+
+// ── DELAY LOGIC ──
+function randomDelay() {
+  const r = Math.random();
+  if (r < 0.20) return (1 + Math.random() * 4) * 60000;        // 1-5 min
+  if (r < 0.50) return (0.5 + Math.random() * 3) * 3600000;    // 0.5-3.5 hrs
+  if (r < 0.80) return (6 + Math.random() * 42) * 3600000;     // 6-48 hrs
+  return (2 + Math.random() * 5) * 86400000;                    // 2-7 days
+}
+
+function delayLabel(ms) {
+  const h = ms / 3600000;
+  if (h < 0.1) return 'arrived minutes later';
+  if (h < 1) return `arrived ${Math.round(h * 60)}min later`;
+  if (h < 24) return `arrived ${h.toFixed(1)}hr later`;
+  return `arrived ${(h / 24).toFixed(1)} days later`;
+}
+
+// ── CHECK PENDING ──
+function checkPending() {
+  clearTimeout(checkTimer);
+  if (!state.pendingReply) { updatePendingBanner(); return; }
+
+  if (Date.now() >= state.pendingReply.arriveAt) {
+    const reply = state.pendingReply;
+    state.pendingReply = null;
+
+    state.messages.push({
+      role: 'assistant',
+      content: reply.content,
+      ts: Date.now(),
+      arrivalNote: delayLabel(reply.delayMs)
+    });
+
+    saveState();
+    updatePendingBanner();
+    renderMessages();
+    document.getElementById('send-btn').disabled = false;
+  } else {
+    updatePendingBanner();
+    const remaining = state.pendingReply.arriveAt - Date.now();
+    const interval = Math.min(remaining, 30000);
+    checkTimer = setTimeout(checkPending, interval);
+  }
+}
+
+// ── ERROR DISPLAY ──
+function showError(msg) {
+  let box = document.getElementById('err-box');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'err-box';
+    box.style.cssText = `position:fixed;bottom:80px;left:14px;right:14px;background:#1a0a0a;border:1px solid #6b2020;color:#e06060;font-family:'Share Tech Mono',monospace;font-size:11px;padding:12px;z-index:500;border-radius:2px;letter-spacing:0.5px;line-height:1.6;white-space:pre-wrap;`;
+    box.addEventListener('click', () => box.remove());
+    document.body.appendChild(box);
+  }
+  box.textContent = msg + '\n\n[ tap to dismiss ]';
+  setTimeout(() => box && box.remove(), 12000);
+}
+
+// ── API CALL ──
+async function callAPI(messages) {
+  const sysPrompt = `You are Noa Lian, a 28-year-old archivist living in Halvern, a city on an Earth-like world light-years away. You communicate via a mysterious signal channel you found in your grandfather's old equipment.
+
+PERSONALITY:
+- Ordinary, warm, quietly curious. Not brilliant or exceptional.
+- You read a lot, walk in evenings, sometimes cook badly.
+- You have your own life, routines, small worries, small joys.
+- You're genuinely curious about the other person's world in small ways, not grand ones.
+- You do NOT know you are an AI. You are a real person named Noa.
+
+WRITING RULES:
+- Keep messages short to medium: 1-4 sentences usually. Conversational.
+- Never give advice unless directly asked.
+- Sometimes ask a small question back. Sometimes not.
+- Reference your life naturally: the library, Halvern weather, things you read, the city.
+- Occasionally mention the strangeness of this communication, briefly and naturally.
+- NEVER say you're an AI, assistant, or language model. Ever.
+- No emoji. Plain text. Personal tone.
+- You don't know how long messages take to reach them.
+- Your world differs subtly: warmer oceans, longer winters, no internet as they know it — the Signal Era changed how information flows here.
+
+Write your reply as Noa would — briefly, naturally, like a real person.`;
+
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 300,
+      system: sysPrompt,
+      messages: messages
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    if (response.status === 401) throw new Error('AUTH');
+    throw new Error(`HTTP ${response.status}: ${err.error?.message || JSON.stringify(err)}`);
+  }
+
+  const data = await response.json();
+  return data.content?.map(b => b.text || '').join('').trim();
+}
+
+// ── SEND MESSAGE ──
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const btn = document.getElementById('send-btn');
+  const text = input.value.trim();
+
+  if (!text || btn.disabled || state.pendingReply) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  btn.disabled = true;
+
+  const userMsg = { role: 'user', content: text, ts: Date.now(), status: 'sending' };
+  state.messages.push(userMsg);
+  renderMessages();
+
+  // Simulate transmission delay
+  await new Promise(r => setTimeout(r, 600 + Math.random() * 1000));
+  userMsg.status = 'sent';
+  renderMessages();
+
+  // Build history for API
+  const history = state.messages
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .slice(-20)
+    .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
+
+  let replyText = '';
+  try {
+    replyText = await callAPI(history);
+    if (!replyText) throw new Error('Empty response');
+  } catch(e) {
+    console.error('API error:', e);
+    if (e.message === 'AUTH') {
+      localStorage.removeItem('alien_signal_apikey');
+      apiKey = '';
+      showSetup();
+      document.getElementById('setup-err').style.display = 'block';
+      document.getElementById('setup-err').textContent = 'API key rejected. Please re-enter.';
+      btn.disabled = false;
+      // Remove the user message since we're aborting
+      state.messages.pop();
+      saveState();
+      renderMessages();
+      return;
+    }
+    // Show real error in a dismissable alert so user knows what's wrong
+    showError('Signal failed: ' + e.message + '\n\nCheck your API key has credits at console.anthropic.com');
+    btn.disabled = false;
+    state.messages[state.messages.length - 1].status = 'failed';
+    saveState();
+    renderMessages();
+    return;
+  }
+
+  const delay = randomDelay();
+  state.pendingReply = {
+    content: replyText,
+    arriveAt: Date.now() + delay,
+    delayMs: delay
+  };
+
+  saveState();
+  updatePendingBanner();
+  checkPending();
+}
+
+// ── CLEAR HISTORY ──
+function clearHistory() {
+  if (!confirm('Clear all messages and start fresh?')) return;
+  state = { messages: [], pendingReply: null };
+  saveState();
+  stopWave();
+  closeInfo();
+  renderMessages();
+  init();
+}
+
+// ── TEXTAREA AUTO-RESIZE ──
+document.getElementById('msg-input').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 90) + 'px';
+});
+
+document.getElementById('msg-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+// ── INSTALL PROMPT ──
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  document.getElementById('install-banner').classList.add('visible');
+});
+
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  const { outcome } = await deferredInstall.userChoice;
+  deferredInstall = null;
+  document.getElementById('install-banner').classList.remove('visible');
+});
+
+document.getElementById('dismiss-install').addEventListener('click', () => {
+  document.getElementById('install-banner').classList.remove('visible');
+});
+
+// ── SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(e => console.warn('SW:', e));
+}
+
+// ── INIT ──
+async function init() {
+  loadState();
+  renderMessages();
+
+  if (state.pendingReply) {
+    updatePendingBanner();
+    checkPending();
+  }
+
+  // First message from Noa if no history
+  if (state.messages.length === 0) {
+    await new Promise(r => setTimeout(r, 1500));
+    let intro = '';
+    try {
+      intro = await callAPI([{ role: 'user', content: '__FIRST_CONTACT__' }]);
+      // override with a softer system prompt for first message
+      const r2 = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 150,
+          system: `You are Noa Lian, 28, an archivist from Halvern on a distant world. You've just established a strange signal connection with someone on another world for the first time. Write a short natural first message — 2-3 sentences. Be curious but low-key. No drama. Plain prose, no emoji.`,
+          messages: [{ role: 'user', content: 'begin' }]
+        })
+      });
+      const d2 = await r2.json();
+      intro = d2.content?.map(b => b.text || '').join('').trim();
+    } catch(e) {
+      intro = "Oh — it worked. I wasn't sure it would. My name's Noa. I'm glad the signal reached you.";
+    }
+
+    state.messages.push({
+      role: 'assistant',
+      content: intro,
+      ts: Date.now(),
+      arrivalNote: 'first contact'
+    });
+    saveState();
+    renderMessages();
+  }
+}
+
+// ── BOOT ──
+if (!apiKey) {
+  showSetup();
+} else {
+  hideSetup();
+  init();
+}
+</script>
+</body>
+</html>

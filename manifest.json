@@ -1,0 +1,24 @@
+{
+  "name": "Alien Signal Terminal",
+  "short_name": "Signal",
+  "description": "A slow message exchange with someone on another world",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0d0a",
+  "theme_color": "#0a0d0a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
